@@ -2,13 +2,17 @@ use amethyst::{
     assets::{Loader, ProgressCounter},
     controls::FlyControlTag,
     core::Transform,
+    ecs::prelude::{Join, WriteStorage},
+    input::is_close_requested,
     prelude::*,
     renderer::{
         AmbientColor, Camera, DirectionalLight, Light, Material, MaterialDefaults, MeshHandle,
         PosNormTex, Projection, Shape,
     },
+    winit::{Event, WindowEvent},
 };
 
+/// State representing the client game
 #[derive(Default)]
 pub struct Pearl {
     cube_mesh: Option<MeshHandle>,
@@ -22,6 +26,33 @@ impl SimpleState for Pearl {
         initialise_camera(world);
         self.initialize_cube(world);
         self.initialize_light(world);
+    }
+
+    fn handle_event(
+        &mut self,
+        data: StateData<'_, GameData<'_, '_>>,
+        state_event: StateEvent,
+    ) -> SimpleTrans {
+        if let StateEvent::Window(event) = &state_event {
+            // Close the window if necessary
+            if is_close_requested(&event) {
+                return Trans::Quit;
+            }
+            // Adjust camera aspect ratio if the window's ratio was changed
+            if let Event::WindowEvent {
+                event: window_event,
+                ..
+            } = event
+            {
+                if let WindowEvent::Resized(logical_size) = window_event {
+                    self.update_camera_ratio(
+                        data.world,
+                        (logical_size.width / logical_size.height) as f32,
+                    );
+                }
+            }
+        }
+        Trans::None
     }
 }
 
@@ -61,6 +92,15 @@ impl Pearl {
             .with(self.cube_mesh.clone().unwrap())
             .with(self.cube_material.clone().unwrap())
             .build();
+    }
+
+    fn update_camera_ratio(&mut self, world: &mut World, ratio: f32) {
+        let new_camera = Camera::from(Projection::perspective(ratio, 0.5));
+        world.exec(|(mut cameras,): (WriteStorage<Camera>,)| {
+            for c in (&mut cameras).join() {
+                *c = new_camera.clone();
+            }
+        });
     }
 }
 

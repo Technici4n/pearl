@@ -34,7 +34,7 @@ fn main() -> amethyst::Result<()> {
                 Some(String::from("move_y")),
                 Some(String::from("move_z")),
             )
-            .with_sensitivity(0.4, 0.4),
+            .with_sensitivity(0.2, 0.2),
         )?
         .with_bundle(
             InputBundle::<String, String>::new().with_bindings_from_file(&key_bindings_path)?,
