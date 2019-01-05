@@ -1,13 +1,13 @@
 extern crate amethyst;
 
 use amethyst::{
-    controls::FlyControlBundle,
     core::transform::TransformBundle,
     input::InputBundle,
     prelude::*,
     renderer::{DisplayConfig, DrawShaded, Pipeline, PosNormTex, RenderBundle, Stage},
     utils::application_root_dir,
 };
+use exploration_camera::ExplorationCameraBundle;
 
 mod pearl;
 
@@ -29,7 +29,7 @@ fn main() -> amethyst::Result<()> {
 
     let game_data = GameDataBuilder::default()
         .with_bundle(
-            FlyControlBundle::<String, String>::new(
+            ExplorationCameraBundle::<String, String>::new(
                 Some(String::from("move_x")),
                 Some(String::from("move_y")),
                 Some(String::from("move_z")),
@@ -39,7 +39,7 @@ fn main() -> amethyst::Result<()> {
         .with_bundle(
             InputBundle::<String, String>::new().with_bindings_from_file(&key_bindings_path)?,
         )?
-        .with_bundle(TransformBundle::new().with_dep(&["fly_movement"]))?
+        .with_bundle(TransformBundle::new().with_dep(&["exploration_camera_movement"]))?
         .with_bundle(RenderBundle::new(pipe, Some(config)))?;
     let mut game = Application::new("./", pearl::Pearl::default(), game_data)?;
 

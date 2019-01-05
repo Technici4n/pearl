@@ -9,8 +9,8 @@
             neg: Key(LShift),
         ),
         "move_z": Emulated(
-            pos: Key(S),
-            neg: Key(W),
+            pos: Key(W),
+            neg: Key(S),
         ),
     },
     actions: {

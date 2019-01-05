@@ -1,6 +1,5 @@
 use amethyst::{
     assets::{Loader, ProgressCounter},
-    controls::FlyControlTag,
     core::Transform,
     ecs::prelude::{Join, WriteStorage},
     input::is_close_requested,
@@ -11,6 +10,7 @@ use amethyst::{
     },
     winit::{Event, WindowEvent},
 };
+use exploration_camera::ExplorationControlTag;
 
 /// State representing the client game
 #[derive(Default)]
@@ -111,6 +111,6 @@ fn initialise_camera(world: &mut World) {
         .create_entity()
         .with(Camera::from(Projection::perspective(1.0, 0.5)))
         .with(transform)
-        .with(FlyControlTag)
+        .with(ExplorationControlTag::default())
         .build();
 }

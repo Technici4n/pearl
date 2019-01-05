@@ -1,9 +1,9 @@
 [package]
-name = "pearl"
+name = "exploration_camera"
 version = "0.1.0"
 authors = []
 edition = "2018"
 
 [dependencies]
 amethyst = "0.10.0"
-exploration_camera = { path = "../exploration_camera", version = "0.1.0" }
+serde = "1.0"
