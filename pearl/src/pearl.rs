@@ -6,7 +6,7 @@ use amethyst::{
     prelude::*,
     renderer::{
         AmbientColor, Camera, DirectionalLight, Light, Material, MaterialDefaults, MeshHandle,
-        PosNormTex, Projection, Shape,
+        PngFormat, Projection, TextureMetadata,
     },
     winit::{Event, WindowEvent},
 };
@@ -74,13 +74,22 @@ impl Pearl {
             let mesh_storage = world.read_resource();
             let texture_storage = world.read_resource();
             let loader = world.read_resource::<Loader>();
-            let mesh_data = Shape::Cube.generate::<Vec<PosNormTex>>(None);
+            // let mesh_data = Shape::Cube.generate::<Vec<PosNormTex>>(None);
+            let mesh_data = crate::mesh::cube::generate_cube();
+            println!("{:?}", mesh_data);
             let mut progress = ProgressCounter::new();
             self.cube_mesh =
                 Some(loader.load_from_data(mesh_data.into(), &mut progress, &mesh_storage));
-            let color: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
+            let texture_handle = loader.load(
+                "assets/dirt.png",
+                PngFormat,
+                TextureMetadata::srgb_scale(),
+                (),
+                &texture_storage,
+            );
+            // let color: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
             self.cube_material = Some(Material {
-                albedo: loader.load_from_data(color.into(), &mut progress, &texture_storage),
+                albedo: texture_handle, //loader.load_from_data(color.into(), &mut progress, &texture_storage),
                 ..world.read_resource::<MaterialDefaults>().0.clone()
             });
         }

@@ -9,6 +9,7 @@ use amethyst::{
 };
 use exploration_camera::ExplorationCameraBundle;
 
+mod mesh;
 mod pearl;
 
 fn main() -> amethyst::Result<()> {
