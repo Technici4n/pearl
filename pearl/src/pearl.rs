@@ -1,6 +1,6 @@
 use amethyst::{
     assets::{Loader, ProgressCounter},
-    core::Transform,
+    core::{nalgebra::Vector3, Transform},
     ecs::prelude::{Join, WriteStorage},
     input::is_close_requested,
     prelude::*,
@@ -12,11 +12,17 @@ use amethyst::{
 };
 use exploration_camera::ExplorationControlTag;
 
+use crate::{
+    registry::Registry,
+    world::{Block, CHUNK_SIZE},
+    worldgen::ChunkGenerator,
+};
+
 /// State representing the client game
 #[derive(Default)]
 pub struct Pearl {
-    cube_mesh: Option<MeshHandle>,
-    cube_material: Option<Material>,
+    chunk_material: Option<Material>,
+    chunk_generator: Option<ChunkGenerator>,
 }
 
 impl SimpleState for Pearl {
@@ -24,8 +30,11 @@ impl SimpleState for Pearl {
         let world = data.world;
 
         initialise_camera(world);
-        self.initialize_cube(world);
         self.initialize_light(world);
+        self.initialize_block_registry(world);
+        self.initialize_chunk_generator(world);
+        self.initialize_chunk_texture(world);
+        self.initialize_chunk(world);
     }
 
     fn handle_event(
@@ -69,37 +78,56 @@ impl Pearl {
         world.add_resource(AmbientColor([0.4, 0.4, 0.4, 1.0].into()));
     }
 
-    fn initialize_cube(&mut self, world: &mut World) {
-        {
-            let mesh_storage = world.read_resource();
-            let texture_storage = world.read_resource();
-            let loader = world.read_resource::<Loader>();
-            // let mesh_data = Shape::Cube.generate::<Vec<PosNormTex>>(None);
-            let mesh_data = crate::mesh::cube::generate_cube();
-            println!("{:?}", mesh_data);
-            let mut progress = ProgressCounter::new();
-            self.cube_mesh =
-                Some(loader.load_from_data(mesh_data.into(), &mut progress, &mesh_storage));
-            let texture_handle = loader.load(
-                "assets/dirt.png",
-                PngFormat,
-                TextureMetadata::srgb_scale(),
-                (),
-                &texture_storage,
-            );
-            // let color: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
-            self.cube_material = Some(Material {
-                albedo: texture_handle, //loader.load_from_data(color.into(), &mut progress, &texture_storage),
-                ..world.read_resource::<MaterialDefaults>().0.clone()
-            });
-        }
+    fn initialize_block_registry(&mut self, world: &mut World) {
+        let mut block_registry = Registry::<Block>::new();
+        block_registry.register("default:air", Block { air: true });
+        block_registry.register("default:dirt", Block { air: false });
+        world.add_resource(block_registry);
+    }
 
-        let transform = Transform::default();
+    fn initialize_chunk_generator(&mut self, world: &mut World) {
+        self.chunk_generator = Some(ChunkGenerator::new(&world.read_resource()));
+    }
+
+    fn initialize_chunk_texture(&mut self, world: &mut World) {
+        let material_defaults = world.read_resource::<MaterialDefaults>().0.clone();
+        let texture_storage = world.read_resource();
+        let loader = world.read_resource::<Loader>();
+        let texture_handle = loader.load(
+            "assets/dirt.png",
+            PngFormat,
+            TextureMetadata::srgb_scale(),
+            (),
+            &texture_storage,
+        );
+        self.chunk_material = Some(Material {
+            albedo: texture_handle,
+            ..material_defaults
+        });
+    }
+
+    fn initialize_chunk(&mut self, world: &mut World) {
+        let chunk_mesh: MeshHandle = {
+            let mesh_storage = world.read_resource();
+            let loader = world.read_resource::<Loader>();
+            let block_registry = world.read_resource();
+            let chunk = self
+                .chunk_generator
+                .as_ref()
+                .expect("initialize_chunk was called before initialize_chunk_generator")
+                .generate_chunk(Vector3::from([0, -1, 0]));
+            let mesh_data = crate::mesh::chunk::generate_chunk(chunk, &block_registry);
+            let mut progress = ProgressCounter::new();
+            loader.load_from_data(mesh_data.into(), &mut progress, &mesh_storage)
+        };
+
+        let mut transform = Transform::default();
+        transform.set_position(Vector3::from([0.0, -1.0 * CHUNK_SIZE as f32, 0.0]));
         world
             .create_entity()
             .with(transform)
-            .with(self.cube_mesh.clone().unwrap())
-            .with(self.cube_material.clone().unwrap())
+            .with(chunk_mesh)
+            .with(self.chunk_material.clone().unwrap())
             .build();
     }
 
@@ -114,8 +142,7 @@ impl Pearl {
 }
 
 fn initialise_camera(world: &mut World) {
-    let mut transform = Transform::default();
-    transform.set_z(9.0);
+    let transform = Transform::default();
     world
         .create_entity()
         .with(Camera::from(Projection::perspective(1.0, 0.5)))

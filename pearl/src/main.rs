@@ -11,8 +11,16 @@ use exploration_camera::ExplorationCameraBundle;
 
 mod mesh;
 mod pearl;
+mod registry;
+mod world;
+mod worldgen;
 
 fn main() -> amethyst::Result<()> {
+    // Allows attaching a debugger to the process to debug startup crashes
+    // Visual Studio doesn't allow changing the working directory so this is
+    // the only way...
+    // std::thread::sleep(std::time::Duration::from_secs(10));
+
     amethyst::start_logger(Default::default());
 
     let app_root = application_root_dir();
