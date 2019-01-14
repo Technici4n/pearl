@@ -43,7 +43,6 @@ impl SimpleState for Pearl {
                 for k in -4..=4 {
                     let pos = Vector3::new(i, j, k);
                     let chunk = chunk_generator.generate_chunk(&pos);
-                    println!("{:?} --> {:?}", pos, chunk.blocks[0][0][0]);
                     chunk_map.insert(ChunkPos(pos.clone()), chunk);
                 }
             }

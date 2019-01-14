@@ -2,4 +2,4 @@
 Voxel game using amethyst
 
 ## Screenshot
-![28 december](screenshots/20181228-1.png)
+![January the 14th](screenshots/20190114-1.png)
