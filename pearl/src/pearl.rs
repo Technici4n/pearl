@@ -14,7 +14,7 @@ use exploration_camera::ExplorationControlTag;
 
 use crate::{
     registry::Registry,
-    world::{Block, CHUNK_SIZE},
+    world::{Block, Chunk, ChunkMap, ChunkPos, CHUNK_SIZE},
     worldgen::ChunkGenerator,
 };
 
@@ -27,6 +27,8 @@ pub struct Pearl {
 
 impl SimpleState for Pearl {
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
+        use crate::mesh::chunk::ADJACENCY;
+
         let world = data.world;
 
         initialise_camera(world);
@@ -34,7 +36,42 @@ impl SimpleState for Pearl {
         self.initialize_block_registry(world);
         self.initialize_chunk_generator(world);
         self.initialize_chunk_texture(world);
-        self.initialize_chunk(world);
+        let mut chunk_map = ChunkMap::new();
+        let chunk_generator = self.chunk_generator.as_mut().unwrap();
+        for i in -4..=4 {
+            for j in -4..=4 {
+                for k in -4..=4 {
+                    let pos = Vector3::new(i, j, k);
+                    let chunk = chunk_generator.generate_chunk(&pos);
+                    println!("{:?} --> {:?}", pos, chunk.blocks[0][0][0]);
+                    chunk_map.insert(ChunkPos(pos.clone()), chunk);
+                }
+            }
+        }
+        for i in -1..=1 {
+            for j in -1..=1 {
+                for k in -1..=1 {
+                    let adjacent_chunks: Vec<&Chunk> = (0..6)
+                        .map(|side| {
+                            chunk_map
+                                .get(&ChunkPos(Vector3::new(
+                                    i + ADJACENCY[side][0],
+                                    j + ADJACENCY[side][1],
+                                    k + ADJACENCY[side][2],
+                                )))
+                                .unwrap()
+                        })
+                        .collect();
+                    let pos = Vector3::new(i, j, k);
+                    self.initialize_chunk(
+                        world,
+                        chunk_map.get(&ChunkPos(pos)).unwrap(),
+                        &adjacent_chunks,
+                        &pos,
+                    );
+                }
+            }
+        }
     }
 
     fn handle_event(
@@ -106,23 +143,32 @@ impl Pearl {
         });
     }
 
-    fn initialize_chunk(&mut self, world: &mut World) {
+    fn initialize_chunk(
+        &mut self,
+        world: &mut World,
+        chunk: &Chunk,
+        adjacent_chunks: &[&Chunk],
+        position: &Vector3<isize>,
+    ) {
         let chunk_mesh: MeshHandle = {
             let mesh_storage = world.read_resource();
             let loader = world.read_resource::<Loader>();
             let block_registry = world.read_resource();
-            let chunk = self
-                .chunk_generator
-                .as_ref()
-                .expect("initialize_chunk was called before initialize_chunk_generator")
-                .generate_chunk(Vector3::from([0, -1, 0]));
-            let mesh_data = crate::mesh::chunk::generate_chunk(chunk, &block_registry);
+            let mesh_data =
+                crate::mesh::chunk::generate_chunk(chunk, adjacent_chunks, &block_registry);
+            if mesh_data.len() == 0 {
+                return;
+            }
             let mut progress = ProgressCounter::new();
             loader.load_from_data(mesh_data.into(), &mut progress, &mesh_storage)
         };
 
         let mut transform = Transform::default();
-        transform.set_position(Vector3::from([0.0, -1.0 * CHUNK_SIZE as f32, 0.0]));
+        transform.set_position(Vector3::from([
+            position[0] as f32 * CHUNK_SIZE as f32,
+            position[1] as f32 * CHUNK_SIZE as f32,
+            position[2] as f32 * CHUNK_SIZE as f32,
+        ]));
         world
             .create_entity()
             .with(transform)

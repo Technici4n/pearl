@@ -26,7 +26,7 @@ impl ChunkGenerator {
     }
 
     /// Generate a chunk at the given position
-    pub fn generate_chunk(&self, pos: Vector3<isize>) -> Chunk {
+    pub fn generate_chunk(&mut self, pos: &Vector3<isize>) -> Chunk {
         let mut chunk = Chunk::filled(self.air_block);
         for i in 0..CHUNK_SIZE {
             for j in 0..CHUNK_SIZE {

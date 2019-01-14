@@ -52,18 +52,19 @@ pub mod cube {
         [0.0, 0.0, -1.0],
     ];
 
-    pub fn generate_cube(offset: Vector3<f32>) -> Vec<PosNormTex> {
-        let mut output = Vec::new(); // TODO: with_capacity
+    const TOTAL_VERTEX_COUNT: usize = 36;
+
+    pub fn generate_cube(offset: Vector3<f32>, dest: &mut Vec<PosNormTex>) {
+        dest.reserve(TOTAL_VERTEX_COUNT);
         for f in 0..6 {
             for v in 0..6 {
-                output.push(PosNormTex {
+                dest.push(PosNormTex {
                     position: Vector3::from(VERTICES[FACES[f][v]]) + &offset,
                     normal: NORMALS[f].into(),
                     tex_coord: TEXTURE_COORDINATES[v].into(),
                 });
             }
         }
-        output
     }
 }
 
@@ -71,47 +72,76 @@ pub mod cube {
 pub mod chunk {
     use crate::{
         registry::Registry,
-        world::{Block, Chunk, CHUNK_SIZE},
+        world::{Block, Chunk},
     };
-    use amethyst::renderer::PosNormTex;
+    use amethyst::{core::nalgebra::Vector3, renderer::PosNormTex};
 
-    const ADJACENCY_PLUS_ONE: [[usize; 3]; 6] = [
-        [2, 1, 1],
-        [0, 1, 1],
-        [1, 2, 1],
-        [1, 0, 1],
-        [1, 1, 2],
-        [1, 1, 0],
+    pub const ADJACENCY: [[isize; 3]; 6] = [
+        [1, 0, 0],
+        [-1, 0, 0],
+        [0, 1, 0],
+        [0, -1, 0],
+        [0, 0, 1],
+        [0, 0, -1],
     ];
 
-    pub fn generate_chunk(chunk: Chunk, block_registry: &Registry<Block>) -> Vec<PosNormTex> {
+    const CHUNK_SIZE: isize = crate::world::CHUNK_SIZE as isize;
+
+    pub fn generate_chunk(
+        chunk: &Chunk,
+        adjacent_chunks: &[&Chunk],
+        block_registry: &Registry<Block>,
+    ) -> Vec<PosNormTex> {
+        assert!(adjacent_chunks.len() == 6);
+
         let mut output = Vec::new();
         for x in 0..CHUNK_SIZE {
             for y in 0..CHUNK_SIZE {
                 for z in 0..CHUNK_SIZE {
-                    let mut should_render = true;
-                    if 0 < x
-                        && x < CHUNK_SIZE - 1
-                        && 0 < y
-                        && y < CHUNK_SIZE - 1
-                        && 0 < z
-                        && z < CHUNK_SIZE - 1
-                    {
-                        should_render = false;
-                        for side in 0..6 {
-                            let nx = x + ADJACENCY_PLUS_ONE[side][0] - 1;
-                            let ny = y + ADJACENCY_PLUS_ONE[side][1] - 1;
-                            let nz = z + ADJACENCY_PLUS_ONE[side][2] - 1;
-                            // TODO: if this is slow use unsafe unchecked getters
-                            let block_id = chunk.blocks[nx][ny][nz];
-                            let block = block_registry.get_item(block_id);
-                            should_render = should_render | block.air;
+                    let mut should_render = false;
+                    for side in 0..6 {
+                        let mut chunk = chunk;
+                        let mut nx = x + ADJACENCY[side][0];
+                        let mut ny = y + ADJACENCY[side][1];
+                        let mut nz = z + ADJACENCY[side][2];
+                        // TODO: Is there a cleaner/more efficient way to do this?
+                        // TODO: Maybe separating chunk sides and chunk interior could work?
+                        if nx == CHUNK_SIZE {
+                            nx -= CHUNK_SIZE;
+                            chunk = &adjacent_chunks[0];
                         }
+                        if nx == -1 {
+                            nx += CHUNK_SIZE;
+                            chunk = &adjacent_chunks[1];
+                        }
+                        if ny == CHUNK_SIZE {
+                            ny -= CHUNK_SIZE;
+                            chunk = &adjacent_chunks[2];
+                        }
+                        if ny == -1 {
+                            ny += CHUNK_SIZE;
+                            chunk = &adjacent_chunks[3];
+                        }
+                        if nz == CHUNK_SIZE {
+                            nz -= CHUNK_SIZE;
+                            chunk = &adjacent_chunks[4];
+                        }
+                        if nz == -1 {
+                            nz += CHUNK_SIZE;
+                            chunk = &adjacent_chunks[5];
+                        }
+                        // TODO: if the cast makes the build slow then use unsafe
+                        let block_id = chunk.blocks[nx as usize][ny as usize][nz as usize];
+                        let block = block_registry.get_item(block_id);
+                        should_render = should_render | block.air;
                     }
-                    if should_render {
-                        output.append(&mut super::cube::generate_cube(
-                            [x as f32, y as f32, z as f32].into(),
-                        ));
+                    let block_id = chunk.blocks[x as usize][y as usize][z as usize];
+                    let block = block_registry.get_item(block_id);
+                    if !block.air && should_render {
+                        super::cube::generate_cube(
+                            Vector3::new(x as f32, y as f32, z as f32),
+                            &mut output,
+                        );
                     }
                 }
             }
